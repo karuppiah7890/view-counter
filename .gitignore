@@ -1,2 +1,5 @@
 # binary
 view-counter
+
+# locust cache
+__pycache__
