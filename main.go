@@ -10,8 +10,10 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-func increaseViewCount(conn redis.Conn) func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func increaseViewCount(pool *redis.Pool) func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		conn := pool.Get()
+		defer conn.Close()
 		_, err := conn.Do("INCR", "view-counter")
 
 		if err != nil {
@@ -27,14 +29,20 @@ func increaseViewCount(conn redis.Conn) func(w http.ResponseWriter, r *http.Requ
 func main() {
 	port := envy.Get("PORT", "8080")
 	redisURL := envy.Get("REDIS_URL", "redis://localhost:6379")
-	conn, err := redis.DialURL(redisURL)
+	pool := &redis.Pool{
+		Dial: func() (redis.Conn, error) {
+			conn, err := redis.DialURL(redisURL)
 
-	if err != nil {
-		panic(fmt.Errorf("error connecting to redis: %v", err))
+			if err != nil {
+				return nil, fmt.Errorf("error while connecting to redis: %v", err)
+			}
+
+			return conn, nil
+		},
 	}
 
 	router := httprouter.New()
-	router.POST("/view", increaseViewCount(conn))
+	router.POST("/view", increaseViewCount(pool))
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), router))
 }
