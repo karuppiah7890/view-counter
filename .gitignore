@@ -3,3 +3,6 @@ view-counter
 
 # locust cache
 __pycache__
+
+# redis db files
+*.rdb
